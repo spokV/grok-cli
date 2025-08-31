@@ -15,6 +15,7 @@ interface UseInputHandlerProps {
   setIsProcessing: (processing: boolean) => void;
   setIsStreaming: (streaming: boolean) => void;
   setTokenCount: (count: number) => void;
+  setCostUsd?: (usd?: number) => void;
   setProcessingTime: (time: number) => void;
   processingStartTime: React.MutableRefObject<number>;
   isProcessing: boolean;
@@ -44,6 +45,7 @@ export function useInputHandler({
   setIsProcessing,
   setIsStreaming,
   setTokenCount,
+  setCostUsd,
   setProcessingTime,
   processingStartTime,
   isProcessing,
@@ -775,6 +777,9 @@ Respond with ONLY the commit message, no additional text.`;
           case "token_count":
             if (chunk.tokenCount !== undefined) {
               setTokenCount(chunk.tokenCount);
+            }
+            if (setCostUsd) {
+              setCostUsd(chunk.costUsd);
             }
             break;
 

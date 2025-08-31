@@ -16,6 +16,7 @@ import {
 } from "../../utils/confirmation-service";
 import ApiKeyInput from "./api-key-input";
 import cfonts from "cfonts";
+import { getMaxBudgetUSD } from "../../utils/cost";
 
 interface ChatInterfaceProps {
   agent?: GrokAgent;
@@ -27,6 +28,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: GrokAgent }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingTime, setProcessingTime] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
+  const [costUsd, setCostUsd] = useState<number | undefined>(undefined);
   const [isStreaming, setIsStreaming] = useState(false);
   const [confirmationOptions, setConfirmationOptions] =
     useState<ConfirmationOptions | null>(null);
@@ -59,6 +61,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: GrokAgent }) {
     setIsProcessing,
     setIsStreaming,
     setTokenCount,
+    setCostUsd,
     setProcessingTime,
     processingStartTime,
     isProcessing,
@@ -218,6 +221,8 @@ function ChatInterfaceWithAgent({ agent }: { agent: GrokAgent }) {
             isActive={isProcessing || isStreaming}
             processingTime={processingTime}
             tokenCount={tokenCount}
+            costUsd={costUsd}
+            budgetUsd={getMaxBudgetUSD()}
           />
 
           <ChatInput

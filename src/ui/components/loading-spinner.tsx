@@ -6,6 +6,8 @@ interface LoadingSpinnerProps {
   isActive: boolean;
   processingTime: number;
   tokenCount: number;
+  costUsd?: number;
+  budgetUsd?: number;
 }
 
 const loadingTexts = [
@@ -29,6 +31,8 @@ export function LoadingSpinner({
   isActive,
   processingTime,
   tokenCount,
+  costUsd,
+  budgetUsd,
 }: LoadingSpinnerProps) {
   const [spinnerFrame, setSpinnerFrame] = useState(0);
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
@@ -68,8 +72,7 @@ export function LoadingSpinner({
         {spinnerFrames[spinnerFrame]} {loadingTexts[loadingTextIndex]}{" "}
       </Text>
       <Text color="gray">
-        ({processingTime}s · ↑ {formatTokenCount(tokenCount)} tokens · esc to
-        interrupt)
+        ({processingTime}s · ↑ {formatTokenCount(tokenCount)} tokens{costUsd !== undefined ? ` · $${costUsd.toFixed(costUsd < 1 ? 4 : 2)}` : ''}{budgetUsd !== undefined ? ` / $${budgetUsd.toFixed(2)}` : ''} · esc to interrupt)
       </Text>
     </Box>
   );

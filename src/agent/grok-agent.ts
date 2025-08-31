@@ -18,6 +18,7 @@ import {
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
 import { createTokenCounter, TokenCounter } from "../utils/token-counter";
+import { getCostRates, estimateCostUSD, getMaxBudgetUSD } from "../utils/cost";
 import { loadCustomInstructions } from "../utils/custom-instructions";
 import { getSettingsManager } from "../utils/settings-manager";
 
@@ -38,6 +39,7 @@ export interface StreamingChunk {
   toolCall?: GrokToolCall;
   toolResult?: ToolResult;
   tokenCount?: number;
+  costUsd?: number;
 }
 
 export class GrokAgent extends EventEmitter {
@@ -54,6 +56,10 @@ export class GrokAgent extends EventEmitter {
   private abortController: AbortController | null = null;
   private mcpInitialized: boolean = false;
   private maxToolRounds: number;
+  private sessionTokensIn: number = 0;
+  private sessionTokensOut: number = 0;
+  private sessionInputBaselineTokens: number = 0;
+  private maxBudgetUsd?: number;
 
   constructor(
     apiKey: string,
@@ -74,6 +80,7 @@ export class GrokAgent extends EventEmitter {
     this.confirmationTool = new ConfirmationTool();
     this.search = new SearchTool();
     this.tokenCounter = createTokenCounter(modelToUse);
+    this.maxBudgetUsd = getMaxBudgetUSD();
 
     // Initialize MCP servers if configured
     this.initializeMCP();
@@ -381,10 +388,20 @@ Current working directory: ${process.cwd()}`,
     let inputTokens = this.tokenCounter.countMessageTokens(
       this.messages as any
     );
-    yield {
-      type: "token_count",
-      tokenCount: inputTokens,
-    };
+    // Track request-local token counters
+    let requestTokensIn = Math.max(0, inputTokens - this.sessionInputBaselineTokens);
+    let requestTokensOut = 0;
+
+    {
+      const rates = getCostRates(this.grokClient.getCurrentModel());
+      const estCost = estimateCostUSD(this.sessionTokensIn + requestTokensIn, this.sessionTokensOut + requestTokensOut, rates);
+      yield { type: "token_count", tokenCount: inputTokens, costUsd: estCost } as any;
+      if (this.maxBudgetUsd !== undefined && estCost > this.maxBudgetUsd) {
+        yield { type: "content", content: `\n\n[Budget exceeded: $${this.maxBudgetUsd.toFixed(2)}]` };
+        yield { type: "done" };
+        return;
+      }
+    }
 
     const maxToolRounds = this.maxToolRounds; // Prevent infinite loops
     let toolRounds = 0;
@@ -467,11 +484,16 @@ Current working directory: ${process.cwd()}`,
               content: chunk.choices[0].delta.content,
             };
 
-            // Emit token count update
-            yield {
-              type: "token_count",
-              tokenCount: inputTokens + totalOutputTokens,
-            };
+            // Emit token count + cost update
+            requestTokensOut = totalOutputTokens;
+            const rates = getCostRates(this.grokClient.getCurrentModel());
+            const estCost = estimateCostUSD(this.sessionTokensIn + requestTokensIn, this.sessionTokensOut + requestTokensOut, rates);
+            yield { type: "token_count", tokenCount: inputTokens + totalOutputTokens, costUsd: estCost } as any;
+            if (this.maxBudgetUsd !== undefined && estCost > this.maxBudgetUsd) {
+              yield { type: "content", content: `\n\n[Budget exceeded: $${this.maxBudgetUsd.toFixed(2)}]` };
+              yield { type: "done" };
+              return;
+            }
           }
         }
 
@@ -548,10 +570,17 @@ Current working directory: ${process.cwd()}`,
           inputTokens = this.tokenCounter.countMessageTokens(
             this.messages as any
           );
-          yield {
-            type: "token_count",
-            tokenCount: inputTokens + totalOutputTokens,
-          };
+          requestTokensIn = Math.max(0, inputTokens - this.sessionInputBaselineTokens);
+          {
+            const rates = getCostRates(this.grokClient.getCurrentModel());
+            const estCost = estimateCostUSD(this.sessionTokensIn + requestTokensIn, this.sessionTokensOut + requestTokensOut, rates);
+            yield { type: "token_count", tokenCount: inputTokens + totalOutputTokens, costUsd: estCost } as any;
+            if (this.maxBudgetUsd !== undefined && estCost > this.maxBudgetUsd) {
+              yield { type: "content", content: `\n\n[Budget exceeded: $${this.maxBudgetUsd.toFixed(2)}]` };
+              yield { type: "done" };
+              return;
+            }
+          }
 
           // Continue the loop to get the next response (which might have more tool calls)
         } else {
@@ -568,6 +597,10 @@ Current working directory: ${process.cwd()}`,
         };
       }
 
+      // Commit per-request to session totals and update baseline
+      this.sessionTokensIn += requestTokensIn;
+      this.sessionTokensOut += requestTokensOut;
+      this.sessionInputBaselineTokens = inputTokens;
       yield { type: "done" };
     } catch (error: any) {
       // Check if this was a cancellation

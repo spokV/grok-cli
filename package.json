@@ -52,4 +52,21 @@
     "node": ">=16.0.0"
   },
   "preferGlobal": true
+  ,
+  "bundledDependencies": [
+    "@modelcontextprotocol/sdk",
+    "axios",
+    "cfonts",
+    "chalk",
+    "commander",
+    "dotenv",
+    "enquirer",
+    "fs-extra",
+    "ink",
+    "ink-markdown",
+    "openai",
+    "react",
+    "ripgrep-node",
+    "tiktoken"
+  ]
 }

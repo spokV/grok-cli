@@ -326,6 +326,10 @@ program
     "maximum number of tool execution rounds (default: 400)",
     "400"
   )
+  .option(
+    "--max-budget <usd>",
+    "maximum USD budget for this session (overrides GROK_MAX_BUDGET_USD)"
+  )
   .action(async (options) => {
     if (options.directory) {
       try {
@@ -345,6 +349,9 @@ program
       const baseURL = options.baseUrl || loadBaseURL();
       const model = options.model || loadModel();
       const maxToolRounds = parseInt(options.maxToolRounds) || 400;
+      if (options.maxBudget) {
+        process.env.GROK_MAX_BUDGET_USD = String(options.maxBudget);
+      }
 
       if (!apiKey) {
         console.error(
@@ -400,6 +407,10 @@ gitCommand
     "maximum number of tool execution rounds (default: 400)",
     "400"
   )
+  .option(
+    "--max-budget <usd>",
+    "maximum USD budget for this session (overrides GROK_MAX_BUDGET_USD)"
+  )
   .action(async (options) => {
     if (options.directory) {
       try {
@@ -419,6 +430,9 @@ gitCommand
       const baseURL = options.baseUrl || loadBaseURL();
       const model = options.model || loadModel();
       const maxToolRounds = parseInt(options.maxToolRounds) || 400;
+      if (options.maxBudget) {
+        process.env.GROK_MAX_BUDGET_USD = String(options.maxBudget);
+      }
 
       if (!apiKey) {
         console.error(
